@@ -36,6 +36,5 @@ type Report struct {
 	Suspicious   int
 	Cloud        int
 	Normal       int
-	Unknown      int
-	PrivacyScore int
+	Unknown int
 }

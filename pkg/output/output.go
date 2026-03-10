@@ -57,32 +57,6 @@ func categoryIcon(cat models.Category) string {
 	}
 }
 
-func scoreColour(score int) string {
-	switch {
-	case score >= 80:
-		return green
-	case score >= 60:
-		return yellow
-	default:
-		return red
-	}
-}
-
-func scoreLabel(score int) string {
-	switch {
-	case score >= 90:
-		return "EXCELLENT"
-	case score >= 75:
-		return "GOOD"
-	case score >= 60:
-		return "FAIR"
-	case score >= 45:
-		return "POOR"
-	default:
-		return "CRITICAL"
-	}
-}
-
 func buildReport(conns []models.Connection, hostname, platform string) *models.Report {
 	r := &models.Report{
 		Connections: conns,
@@ -106,17 +80,6 @@ func buildReport(conns []models.Connection, hostname, platform string) *models.R
 			r.Unknown++
 		}
 	}
-
-	// Privacy score: start 100, deduct for bad categories
-	score := 100
-	score -= r.Trackers * 8
-	score -= r.Telemetry * 4
-	score -= r.Suspicious * 15
-	score -= r.Unknown * 2
-	if score < 0 {
-		score = 0
-	}
-	r.PrivacyScore = score
 	return r
 }
 
@@ -138,19 +101,6 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 		grey, reset, platform,
 	)
 	fmt.Println()
-
-	// Privacy score bar
-	bar := buildBar(r.PrivacyScore, 30)
-	sc := scoreColour(r.PrivacyScore)
-	fmt.Fprintf(os.Stdout, "\n  %s┌─ Privacy Score ──────────────────────────────────────────┐%s\n", grey, reset)
-	fmt.Fprintf(os.Stdout, "  %s│%s %s%s%s [%d%%] %s%-9s%s                              %s│%s\n",
-		grey, reset,
-		sc, bar, reset,
-		r.PrivacyScore,
-		sc+bold, scoreLabel(r.PrivacyScore), reset,
-		grey, reset,
-	)
-	fmt.Fprintf(os.Stdout, "  %s└──────────────────────────────────────────────────────────┘%s\n\n", grey, reset)
 
 	// Summary counts
 	fmt.Fprintf(os.Stdout, "  Connections: %s%d%s   ", white+bold, r.TotalConns, reset)
@@ -261,14 +211,6 @@ func categoryOrder(c models.Category) int {
 	default:
 		return 5
 	}
-}
-
-func buildBar(score, width int) string {
-	filled := (score * width) / 100
-	if filled > width {
-		filled = width
-	}
-	return "[" + strings.Repeat("█", filled) + strings.Repeat("░", width-filled) + "]"
 }
 
 func padVersion(v string) string {
