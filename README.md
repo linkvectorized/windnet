@@ -11,8 +11,6 @@
 
 > Your machine talks to strangers. Now you can see who.
 
-![windnet screenshot](docs/screenshot.png)
-
 Network connection auditor. See every outbound TCP and UDP connection your machine makes — which organisation owns the IP, whether it's a tracker, telemetry beacon, or cloud service. No API keys, no cloud, no data leaves your machine beyond the enrichment lookups described below.
 
 macOS supported. Linux coming soon.
