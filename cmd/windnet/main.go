@@ -11,7 +11,7 @@ import (
 	"github.com/linkvectorized/windnet/pkg/output"
 )
 
-const version = "0.1.0"
+var version = "0.1.0"
 
 func main() {
 	ver := flag.Bool("version", false, "Print version and exit")
