@@ -121,13 +121,8 @@ func buildReport(conns []models.Connection, hostname, platform string) *models.R
 }
 
 // PrintTable renders the full report to stdout
-func PrintTable(conns []models.Connection, hostname, platform, version string, live bool, interval int) {
+func PrintTable(conns []models.Connection, hostname, platform, version string) {
 	r := buildReport(conns, hostname, platform)
-
-	if live {
-		// Clear screen
-		fmt.Print("\033[2J\033[H")
-	}
 
 	// Banner
 	fmt.Fprintf(os.Stdout, "%s%s", cyan, bold)
@@ -142,9 +137,6 @@ func PrintTable(conns []models.Connection, hostname, platform, version string, l
 		grey, reset, hostname,
 		grey, reset, platform,
 	)
-	if live {
-		fmt.Fprintf(os.Stdout, " %sRefresh:%s every %ds — Ctrl+C to stop", grey, reset, interval)
-	}
 	fmt.Println()
 
 	// Privacy score bar

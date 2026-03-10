@@ -23,14 +23,8 @@ macOS supported. Linux coming soon.
 # Install pre-built binary (no Go required)
 curl -fsSL https://raw.githubusercontent.com/linkvectorized/windnet/master/install.sh | bash
 
-# One-shot scan
+# Run
 windnet
-
-# Live mode — refreshes every 5 seconds
-windnet -live
-
-# Live mode — custom refresh rate
-windnet -live -interval 10
 ```
 
 Or build from source (requires Go 1.21+):
@@ -73,9 +67,7 @@ Score labels: `EXCELLENT` (90+) · `GOOD` (75+) · `FAIR` (60+) · `POOR` (45+) 
 ## Flags
 
 ```
--live             Continuously refresh connections
--interval N       Refresh interval in seconds (default: 5, requires -live)
--version          Print version and exit
+-version    Print version and exit
 ```
 
 ---
