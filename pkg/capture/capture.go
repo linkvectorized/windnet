@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/linkvectorized/windnet/pkg/asn"
 	"github.com/linkvectorized/windnet/pkg/classify"
 	"github.com/linkvectorized/windnet/pkg/models"
 )
@@ -47,30 +48,47 @@ func (c *dnsCache) lookup(ip string) string {
 	return hostname
 }
 
-// Scan captures all established TCP connections and enriches them.
+// Scan captures established TCP and active UDP connections and enriches them.
 func Scan(ctx context.Context) ([]models.Connection, error) {
-	out, err := exec.CommandContext(ctx,
-		"lsof", "-iTCP", "-sTCP:ESTABLISHED", "-n", "-P", "+c", "0",
-	).Output()
-	if err != nil {
-		// lsof exits non-zero if it finds nothing — that's fine
-		if len(out) == 0 {
-			return nil, nil
-		}
+	type result struct {
+		out  []byte
+		proto string
 	}
 
-	raw := parseConnections(string(out))
+	ch := make(chan result, 2)
+
+	go func() {
+		out, _ := exec.CommandContext(ctx,
+			"lsof", "-iTCP", "-sTCP:ESTABLISHED", "-n", "-P", "+c", "0",
+		).Output()
+		ch <- result{out, "TCP"}
+	}()
+
+	go func() {
+		out, _ := exec.CommandContext(ctx,
+			"lsof", "-iUDP", "-n", "-P", "+c", "0",
+		).Output()
+		ch <- result{out, "UDP"}
+	}()
+
+	var raw []rawConn
+	for i := 0; i < 2; i++ {
+		r := <-ch
+		raw = append(raw, parseConnections(string(r.out), r.proto)...)
+	}
+
 	return enrich(raw), nil
 }
 
 type rawConn struct {
 	process    string
 	pid        int
+	protocol   string
 	remoteIP   string
 	remotePort int
 }
 
-func parseConnections(output string) []rawConn {
+func parseConnections(output, proto string) []rawConn {
 	var conns []rawConn
 	seen := map[string]bool{}
 
@@ -128,6 +146,7 @@ func parseConnections(output string) []rawConn {
 		conns = append(conns, rawConn{
 			process:    process,
 			pid:        pid,
+			protocol:   proto,
 			remoteIP:   remoteIP,
 			remotePort: remotePort,
 		})
@@ -159,15 +178,14 @@ func splitHostPort(addr string) (string, int) {
 	return addr[:lastColon], port
 }
 
-// enrich resolves hostnames, classifies, and deduplicates by process+IP
+// enrich resolves hostnames, classifies, and deduplicates by protocol+process+IP
 func enrich(raw []rawConn) []models.Connection {
-	// Group by process+remoteIP
-	type key struct{ process, ip string }
+	type key struct{ proto, process, ip string }
 	grouped := map[key]*models.Connection{}
 	order := []key{}
 
 	for _, r := range raw {
-		k := key{r.process, r.remoteIP}
+		k := key{r.protocol, r.process, r.remoteIP}
 		if c, ok := grouped[k]; ok {
 			c.Count++
 			continue
@@ -187,6 +205,7 @@ func enrich(raw []rawConn) []models.Connection {
 		c := &models.Connection{
 			Process:    r.process,
 			PID:        r.pid,
+			Protocol:   r.protocol,
 			RemoteIP:   r.remoteIP,
 			RemotePort: r.remotePort,
 			Hostname:   hostname,
@@ -198,6 +217,22 @@ func enrich(raw []rawConn) []models.Connection {
 		grouped[k] = c
 		order = append(order, k)
 	}
+
+	// Concurrently enrich unknown/suspicious connections via RDAP
+	var wg sync.WaitGroup
+	for _, k := range order {
+		c := grouped[k]
+		if c.Category == models.CategoryUnknown || c.Category == models.CategorySuspicious {
+			wg.Add(1)
+			go func(conn *models.Connection) {
+				defer wg.Done()
+				if org := asn.LookupOrg(conn.RemoteIP); org != "" {
+					conn.Company = org
+				}
+			}(c)
+		}
+	}
+	wg.Wait()
 
 	result := make([]models.Connection, 0, len(order))
 	for _, k := range order {

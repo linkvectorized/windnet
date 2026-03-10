@@ -16,6 +16,7 @@ const (
 type Connection struct {
 	Process    string
 	PID        int
+	Protocol   string   // "TCP" or "UDP"
 	RemoteIP   string
 	RemotePort int
 	Hostname   string   // reverse DNS result

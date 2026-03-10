@@ -47,7 +47,7 @@ func categoryIcon(cat models.Category) string {
 	case models.CategoryTelemetry:
 		return "⚡"
 	case models.CategorySuspicious:
-		return "🔴"
+		return "●"
 	case models.CategoryCloud:
 		return "☁"
 	case models.CategoryNormal:
@@ -106,7 +106,7 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 	fmt.Fprintf(os.Stdout, "  Connections: %s%d%s   ", white+bold, r.TotalConns, reset)
 	fmt.Fprintf(os.Stdout, "%s⚠ Trackers: %d%s   ", red, r.Trackers, reset)
 	fmt.Fprintf(os.Stdout, "%s⚡ Telemetry: %d%s   ", yellow, r.Telemetry, reset)
-	fmt.Fprintf(os.Stdout, "%s🔴 Suspicious: %d%s   ", red+bold, r.Suspicious, reset)
+	fmt.Fprintf(os.Stdout, "%s● Suspicious: %d%s   ", red+bold, r.Suspicious, reset)
 	fmt.Fprintf(os.Stdout, "%s☁ Cloud: %d%s   ", blue, r.Cloud, reset)
 	fmt.Fprintf(os.Stdout, "%s✓ Normal: %d%s\n\n", green, r.Normal, reset)
 
@@ -123,9 +123,9 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 	})
 
 	// Table header
-	fmt.Fprintf(os.Stdout, "  %s%-3s %-18s %-18s %-22s %-12s %s%s\n",
-		bold+white, "", "PROCESS", "REMOTE IP", "COMPANY", "CATEGORY", "CONNS", reset)
-	fmt.Fprintf(os.Stdout, "  %s%s%s\n", grey, strings.Repeat("─", 92), reset)
+	fmt.Fprintf(os.Stdout, "  %s%-3s   %-20s   %-20s   %-24s   %-12s   %-6s   %-5s%s\n",
+		bold+white, "", "PROCESS", "REMOTE IP", "COMPANY", "CATEGORY", "PROTO", "CONNS", reset)
+	fmt.Fprintf(os.Stdout, "  %s%s%s\n", grey, strings.Repeat("─", 108), reset)
 
 	// Rows
 	for _, c := range sorted {
@@ -149,27 +149,28 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 		}
 
 		process := c.Process
-		if len(process) > 17 {
-			process = process[:14] + "..."
+		if len(process) > 19 {
+			process = process[:16] + "..."
 		}
 
 		ip := c.RemoteIP
-		if len(ip) > 17 {
-			ip = ip[:14] + "..."
+		if len(ip) > 19 {
+			ip = ip[:16] + "..."
 		}
 
-		if len(company) > 21 {
-			company = company[:18] + "..."
+		if len(company) > 23 {
+			company = company[:20] + "..."
 		}
 
 		catStr := string(c.Category)
 
-		fmt.Fprintf(os.Stdout, "  %s%s%s %-18s %-18s %-22s %-12s %s%d%s\n",
+		fmt.Fprintf(os.Stdout, "  %s%s%s   %-20s   %-20s   %-24s   %-12s   %-6s   %s%-5d%s\n",
 			col, icon, reset,
 			process,
 			ip,
 			company,
 			catStr,
+			c.Protocol,
 			col, c.Count, reset,
 		)
 
@@ -183,10 +184,10 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, "  %s%s%s\n\n", grey, strings.Repeat("─", 92), reset)
+	fmt.Fprintf(os.Stdout, "  %s%s%s\n\n", grey, strings.Repeat("─", 108), reset)
 
 	// Legend
-	fmt.Fprintf(os.Stdout, "  %sLegend:%s  %s⚠ TRACKER%s  %s⚡ TELEMETRY%s  %s🔴 SUSPICIOUS — no reverse DNS, unknown host%s  %s☁ CLOUD%s  %s✓ NORMAL%s\n\n",
+	fmt.Fprintf(os.Stdout, "  %sLegend:%s  %s⚠ TRACKER%s  %s⚡ TELEMETRY%s  %s● SUSPICIOUS — no reverse DNS, unknown host%s  %s☁ CLOUD%s  %s✓ NORMAL%s\n\n",
 		grey, reset,
 		red, reset,
 		yellow, reset,
