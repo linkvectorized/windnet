@@ -11,7 +11,7 @@
 
 > Your machine talks to strangers. Now you can see who.
 
-Real-time network connection auditor. See every outbound TCP connection your machine makes — which company owns the IP, whether it's a tracker, telemetry beacon, or cloud service, and a live privacy score. No API keys, no cloud, no data leaves your machine.
+Network connection auditor. See every outbound TCP and UDP connection your machine makes — which organisation owns the IP, whether it's a tracker, telemetry beacon, or cloud service. No API keys, no cloud, no data leaves your machine beyond the enrichment lookups described below.
 
 macOS supported. Linux coming soon.
 
@@ -40,27 +40,37 @@ go build -o windnet ./cmd/windnet/
 
 ## What it detects
 
-| Category    | Colour  | Icon | Description                                         |
-|-------------|---------|------|-----------------------------------------------------|
-| SUSPICIOUS  | Red     | 🔴   | No reverse DNS — unknown host, treat with suspicion |
-| TRACKER     | Red     | ⚠    | Ad networks, analytics, fingerprinting              |
-| TELEMETRY   | Yellow  | ⚡   | OS and app phone-home / diagnostics                 |
-| CLOUD       | Blue    | ☁    | Legitimate cloud/CDN infrastructure                 |
-| NORMAL      | Green   | ✓    | Known, benign services                              |
-| UNKNOWN     | Grey    | ?    | Has reverse DNS but company not in database         |
+| Category   | Colour | Icon | Description                                         |
+|------------|--------|------|-----------------------------------------------------|
+| SUSPICIOUS | Red    | ●    | No reverse DNS — unknown host, treat with suspicion |
+| TRACKER    | Red    | ⚠    | Ad networks, analytics, fingerprinting              |
+| TELEMETRY  | Yellow | ⚡   | OS and app phone-home / diagnostics                 |
+| CLOUD      | Blue   | ☁    | Legitimate cloud/CDN infrastructure                 |
+| NORMAL     | Green  | ✓    | Known, benign services                              |
+| UNKNOWN    | Grey   | ?    | Has reverse DNS but company not in database         |
 
 ---
 
-## Privacy Score
+## How it works
 
-Starts at 100. Deductions per active connection:
+1. Runs `lsof` concurrently for TCP (established) and UDP connections
+2. Deduplicates by protocol + process + remote IP, counting connections per group
+3. Performs reverse DNS lookup per unique IP (2s timeout, in-memory cache)
+4. Classifies each resolved hostname against embedded tracker, telemetry, and company databases
+5. IPs with no reverse DNS are marked **SUSPICIOUS**
+6. For **UNKNOWN** and **SUSPICIOUS** connections, queries [Team Cymru's IP-to-ASN DNS service](https://team-cymru.com/community-services/ip-asn-mapping/) to resolve the owning organisation from BGP routing data — all lookups run concurrently
+7. Renders a colour-coded table showing process, remote IP, company, category, protocol, and connection count
 
-- **Tracker**: −8
-- **Telemetry**: −4
-- **Suspicious** (no reverse DNS): −15
-- **Unknown**: −2
+---
 
-Score labels: `EXCELLENT` (90+) · `GOOD` (75+) · `FAIR` (60+) · `POOR` (45+) · `CRITICAL` (<45)
+## Enrichment and network calls
+
+windnet makes two categories of outbound DNS queries beyond normal resolution:
+
+- **Reverse DNS** (`in-addr.arpa` / `ip6.arpa`) — standard PTR lookups per unique IP
+- **ASN lookups** (Team Cymru) — two TXT queries per unrecognised IP: `<reversed-ip>.origin.asn.cymru.com` and `AS<num>.asn.cymru.com`
+
+No data is sent to any HTTP endpoint. All lookups are standard DNS queries. Results are cached in-process for the lifetime of the scan.
 
 ---
 
@@ -69,19 +79,6 @@ Score labels: `EXCELLENT` (90+) · `GOOD` (75+) · `FAIR` (60+) · `POOR` (45+) 
 ```
 -version    Print version and exit
 ```
-
----
-
-## How it works
-
-1. Runs `lsof -iTCP -sTCP:ESTABLISHED` to snapshot all active TCP connections
-2. Deduplicates by process + remote IP and counts connections per pair
-3. Performs reverse DNS lookup per unique IP (2s timeout, in-memory cache)
-4. Classifies each resolved hostname against embedded tracker, telemetry, and company databases
-5. IPs with no reverse DNS are marked **SUSPICIOUS**
-6. Renders a color-coded table with a privacy score
-
-Everything is embedded — no external API calls, no network requests beyond what your machine was already making.
 
 ---
 
