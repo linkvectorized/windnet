@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	output.PrintTable(conns, hostname, platform, version)
+	output.PrintTable(os.Stdout, conns, hostname, platform, version)
 }
 
 func detectPlatform() string {
@@ -52,3 +52,4 @@ func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
+

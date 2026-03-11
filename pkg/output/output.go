@@ -2,7 +2,7 @@ package output
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"sort"
 	"strings"
 
@@ -83,35 +83,34 @@ func buildReport(conns []models.Connection, hostname, platform string) *models.R
 	return r
 }
 
-// PrintTable renders the full report to stdout
-func PrintTable(conns []models.Connection, hostname, platform, version string) {
+// PrintTable renders the full report to w.
+func PrintTable(w io.Writer, conns []models.Connection, hostname, platform, version string) {
 	r := buildReport(conns, hostname, platform)
 
 	// Banner
-	fmt.Fprintf(os.Stdout, "%s%s", cyan, bold)
-	fmt.Println("  ╔══════════════════════════════════════════════════════════╗")
-	fmt.Printf("  ║           WINDNET v%s — Network Connection Audit        ║\n", padVersion(version))
-	fmt.Println("  ╚══════════════════════════════════════════════════════════╝")
-	fmt.Printf("%s", reset)
-	fmt.Fprintf(os.Stdout, "%s  Your machine talks to strangers. Now you can see who.%s\n\n", yellow, reset)
+	fmt.Fprintf(w, "%s%s", cyan, bold)
+	fmt.Fprintln(w, "  ╔══════════════════════════════════════════════════════════╗")
+	fmt.Fprintf(w, "  ║           WINDNET v%s — Network Connection Audit        ║\n", padVersion(version))
+	fmt.Fprintln(w, "  ╚══════════════════════════════════════════════════════════╝")
+	fmt.Fprintf(w, "%s", reset)
+	fmt.Fprintf(w, "%s  Your machine talks to strangers. Now you can see who.%s\n\n", yellow, reset)
 
 	// Meta line
-	fmt.Fprintf(os.Stdout, "  %sHost:%s %-20s %sPlatform:%s %-10s",
+	fmt.Fprintf(w, "  %sHost:%s %-20s %sPlatform:%s %-10s\n",
 		grey, reset, hostname,
 		grey, reset, platform,
 	)
-	fmt.Println()
 
 	// Summary counts
-	fmt.Fprintf(os.Stdout, "  Connections: %s%d%s   ", white+bold, r.TotalConns, reset)
-	fmt.Fprintf(os.Stdout, "%s⚠ Trackers: %d%s   ", red, r.Trackers, reset)
-	fmt.Fprintf(os.Stdout, "%s⚡ Telemetry: %d%s   ", yellow, r.Telemetry, reset)
-	fmt.Fprintf(os.Stdout, "%s● Suspicious: %d%s   ", red+bold, r.Suspicious, reset)
-	fmt.Fprintf(os.Stdout, "%s☁ Cloud: %d%s   ", blue, r.Cloud, reset)
-	fmt.Fprintf(os.Stdout, "%s✓ Normal: %d%s\n\n", green, r.Normal, reset)
+	fmt.Fprintf(w, "  Connections: %s%d%s   ", white+bold, r.TotalConns, reset)
+	fmt.Fprintf(w, "%s⚠ Trackers: %d%s   ", red, r.Trackers, reset)
+	fmt.Fprintf(w, "%s⚡ Telemetry: %d%s   ", yellow, r.Telemetry, reset)
+	fmt.Fprintf(w, "%s● Suspicious: %d%s   ", red+bold, r.Suspicious, reset)
+	fmt.Fprintf(w, "%s☁ Cloud: %d%s   ", blue, r.Cloud, reset)
+	fmt.Fprintf(w, "%s✓ Normal: %d%s\n\n", green, r.Normal, reset)
 
 	if len(conns) == 0 {
-		fmt.Fprintf(os.Stdout, "  %sNo active connections found.%s\n", grey, reset)
+		fmt.Fprintf(w, "  %sNo active connections found.%s\n", grey, reset)
 		return
 	}
 
@@ -123,12 +122,13 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 	})
 
 	// Table header
-	fmt.Fprintf(os.Stdout, "  %s%-3s   %-20s   %-20s   %-24s   %-12s   %-6s   %-5s%s\n",
+	fmt.Fprintf(w, "  %s%-3s   %-20s   %-20s   %-24s   %-12s   %-6s   %-5s%s\n",
 		bold+white, "", "PROCESS", "REMOTE IP", "COMPANY", "CATEGORY", "PROTO", "CONNS", reset)
-	fmt.Fprintf(os.Stdout, "  %s%s%s\n", grey, strings.Repeat("─", 108), reset)
+	fmt.Fprintf(w, "  %s%s%s\n", grey, strings.Repeat("─", 108), reset)
 
 	// Rows
 	for _, c := range sorted {
+
 		col := categoryColour(c.Category)
 		icon := categoryIcon(c.Category)
 
@@ -138,14 +138,6 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 		}
 		if company == "" {
 			company = "Unknown"
-		}
-
-		display := c.Hostname
-		if display == "" {
-			display = c.RemoteIP
-		}
-		if len(display) > 17 {
-			display = display[:14] + "..."
 		}
 
 		process := c.Process
@@ -164,7 +156,7 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 
 		catStr := string(c.Category)
 
-		fmt.Fprintf(os.Stdout, "  %s%s%s   %-20s   %-20s   %-24s   %-12s   %-6s   %s%-5d%s\n",
+		fmt.Fprintf(w, "  %s%s%s   %-20s   %-20s   %-24s   %-12s   %-6s   %s%-5d%s\n",
 			col, icon, reset,
 			process,
 			ip,
@@ -174,20 +166,20 @@ func PrintTable(conns []models.Connection, hostname, platform, version string) {
 			col, c.Count, reset,
 		)
 
-		// Show hostname under the IP if it differs
 		if c.Hostname != "" && c.Hostname != c.RemoteIP {
 			truncHost := c.Hostname
 			if len(truncHost) > 39 {
 				truncHost = truncHost[:36] + "..."
 			}
-			fmt.Fprintf(os.Stdout, "  %s    %-18s %s%s\n", grey, "", truncHost, reset)
+			fmt.Fprintf(w, "  %s    %-18s %s%s\n", grey, "", truncHost, reset)
 		}
+
 	}
 
-	fmt.Fprintf(os.Stdout, "  %s%s%s\n\n", grey, strings.Repeat("─", 108), reset)
+	fmt.Fprintf(w, "  %s%s%s\n\n", grey, strings.Repeat("─", 108), reset)
 
 	// Legend
-	fmt.Fprintf(os.Stdout, "  %sLegend:%s  %s⚠ TRACKER%s  %s⚡ TELEMETRY%s  %s● SUSPICIOUS — no reverse DNS, unknown host%s  %s☁ CLOUD%s  %s✓ NORMAL%s\n\n",
+	fmt.Fprintf(w, "  %sLegend:%s  %s⚠ TRACKER%s  %s⚡ TELEMETRY%s  %s● SUSPICIOUS — no reverse DNS, unknown host%s  %s☁ CLOUD%s  %s✓ NORMAL%s\n\n",
 		grey, reset,
 		red, reset,
 		yellow, reset,
